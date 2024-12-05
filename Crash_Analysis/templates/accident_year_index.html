@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+
+<style>
+h1 {text-align: center;}
+h2 {text-align: center;}
+</style>
+
+<title> List of Accidents </title>
+<h1> Total Number of Fatalities in {{ year }}: {{ fatals }} </h1>
+<h2> Total Number of Fatal Car Accidents in {{ year }}: {{ length }} </h2>
+<h2> Total Number of Persons Involved in Fatal Car Accidents in {{ year }}: {{ persons }} </h2>
+<h2> Total Number of Vehicles Involved in Fatal Car Accidents in {{ year }}: {{ vehicles }} </h2>
+
+<body>
+    {% render_table aggregate_state_table %}
+    {% render_table aggregate_harm_ev_table %}
+    {% render_table aggregate_make_table %}
+    {% render_table aggregate_body_typ_table %}
+	{% render_table table %}
+</body>
+
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+
+<style>
+h1 {text-align: center;}
+h2 {text-align: center;}
+</style>
+
+<title> Accidents per Year </title>
+
+<body>
+	{% render_table table %}
+</body>
+
+{% endblock %}

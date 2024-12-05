@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<title>Accident Detail</title>
+<div class="container">
+    <div class="row">
+        <!-- Left column for accident details -->
+        <div class="col-md-6">
+            <h1>Accident Details</h1>
+            <p><strong>Case Number:</strong> {{ accident.st_case }}</p>
+            <p><strong>Date/Time:</strong> {{ accident.datetime }}</p>
+            <p><strong>Fatalities:</strong> {{ accident.fatals }}</p>
+            <p><strong>Total Vehicles:</strong> {{ accident.ve_total }}</p>
+            <p><strong>Total Persons:</strong> {{ accident.persons }}</p>
+            <p><strong>Admin ID:</strong> {{ accident.id }}</p>
+
+            <h1>Vehicle Details</h1>
+            {% if vehicles %}
+                <ul>
+                {% for vehicle in vehicles %}
+                    <li>Make: {{ vehicle.get_make_display }}, Model: {{ vehicle.model }}, Year: {{ vehicle.mod_year }}, Admin ID: {{ vehicle.id }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p>No vehicles available</p>
+            {% endif %}
+
+            <h1>Person Details</h1>
+            {% if persons %}
+                <ul>
+                {% for person in persons %}
+                    <li>Age: {{ person.age }}, Sex and/or Gender: {{ person.get_sex_display }}, Person Type: {{ person.get_per_typ_display }}, Injury Severity: {{ person.get_inj_sev_display }}, Admin ID: {{ person.id }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p>No personal information available</p>
+            {% endif %}
+        </div>
+
+        <!-- Right column for the map -->
+        <div class="col-md-6">
+            <div class="map-container">
+                <br>
+                {{ map1|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
