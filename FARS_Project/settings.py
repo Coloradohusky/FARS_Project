@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-import os
+import os, dj_database_url
+from decouple import config
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,10 +26,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-#r*e*x76cjv(@hqidhjel)(0gxo)1ywo@^zmk7egx(0r3^phvs"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = ["rileyjnielsen.pythonanywhere.com"]
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
 
+SECRET_KEY = os.getenv("SECRET_KEY") or config("SECRET_KEY", default=None)
+
+if not SECRET_KEY:
+    if DEBUG:
+        # generate a throwaway key for local development / tests
+        SECRET_KEY = get_random_secret_key()
+    else:
+        raise ImproperlyConfigured(
+            "SECRET_KEY not found. Set the SECRET_KEY environment variable or provide it in a .env for production."
+        )
+
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
@@ -81,17 +96,27 @@ WSGI_APPLICATION = "FARS_Project.wsgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'farsproject',
-        'USER': 'super',
-        'PASSWORD': 'j4CPq*4V7W5K#Y',
-        'HOST': 'rileyjnielsen-4161.postgres.pythonanywhere-services.com',
-        'PORT': 14161,
-    }
+    "default": dj_database_url.parse(
+        os.getenv("DATABASE_URL"),
+        engine="django.contrib.gis.db.backends.postgis",
+        conn_max_age=600,        # persistent connections (important for Render)
+        ssl_require=True
+    )
 }
 
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+try:
+    import psycopg2  # type: ignore
+    DATABASES["default"]["OPTIONS"] = {
+        "sslmode": "require",
+        "channel_binding": "require",  # matches Neon's requirements
+        "prepare_threshold": 0,        # required for PgBouncer / pooler
+    }
+except Exception:
+    # psycopg2 not installed (maybe using psycopg 3 or another adapter).
+    # Leave OPTIONS empty so Django won't pass unsupported kwargs.
+    DATABASES["default"]["OPTIONS"] = {}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -127,10 +152,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000

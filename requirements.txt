@@ -1,0 +1,15 @@
+django==5.2.7
+django-leaflet
+djangorestframework
+numpy
+pandas
+python-decouple
+gunicorn
+whitenoise
+psycopg[binary,pool]
+GDAL==3.10.2
+dj-database-url
+pygbif>=0.6.6
+djangorestframework-gis
+django-tables2
+folium
