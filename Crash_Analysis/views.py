@@ -195,18 +195,24 @@ def index(request):
     print("Start request", file=sys.stderr)
     cache_file = os.path.dirname(os.path.realpath(__file__)) + '/templates/map_generated.html'
     if not os.path.exists(cache_file) or (os.path.getmtime(cache_file) < os.path.getmtime(os.path.realpath(__file__))):
+        # Optimize: extract year in database query to avoid datetime object manipulation
         data = Accident.objects.annotate(
-            geojson=AsGeoJSON('location')
-        ).values('geojson', 'st_case', 'fatals', 'datetime')
+            geojson=AsGeoJSON('location'),
+            year=ExtractYear('datetime')
+        ).values('geojson', 'st_case', 'fatals', 'year')
 
-        data_list = [
-            [
-                json.loads(d['geojson'])['coordinates'][1],  # Latitude (y)
-                json.loads(d['geojson'])['coordinates'][0],  # Longitude (x)
-                d['fatals']
-            ]
-            for d in data
-        ]
+        # Optimize: parse GeoJSON once and build efficient data structure
+        data_list = []
+        for d in data:
+            geojson = json.loads(d['geojson'])
+            coords = geojson['coordinates']
+            data_list.append({
+                'lat': coords[1],
+                'lon': coords[0],
+                'fatals': d['fatals'],
+                'st_case': d['st_case'],
+                'year': d['year'],
+            })
 
         # Create the base map
         map1 = folium.Map(location=[50, -110],
@@ -221,42 +227,38 @@ def index(request):
         # folium.TileLayer('Stamen Terrain', name='Terrain').add_to(map1)
         # folium.TileLayer('Stamen Toner', name='Toner').add_to(map1)
 
-        # Create the heatmap layer
+        # Create the heatmap layer - extract just coordinates and fatals for heatmap
+        heatmap_data = [[d['lat'], d['lon'], d['fatals']] for d in data_list]
         heatmap_layer = folium.FeatureGroup(name="Heatmap")
         plugins.HeatMap(
-            data_list,
+            heatmap_data,
             name="Heatmap",
             radius=15,
         ).add_to(heatmap_layer)
 
-        for d, sublist in zip(data, data_list):
-            sublist.append(d['st_case'])
-            sublist.append(d['datetime'])
-
         marker_layer = folium.FeatureGroup(name="Markers")
-        # add stuff to marker_layer
         marker_cluster = plugins.MarkerCluster(
             name="Marker Cluster",
             options={"disableClusteringAtZoom": 9}
         )
 
         print("Start adding coords", file=sys.stderr)
-        for coords in data_list:
+        for d in data_list:
             folium.CircleMarker(
-                location=[coords[0], coords[1]],
+                location=[d['lat'], d['lon']],
                 radius=6,
                 color='blue',
                 fill=True,
-                fill_color=get_fill_color(coords[2]),
+                fill_color=get_fill_color(d['fatals']),
                 fill_opacity=0.7,
                 popup=Popup(
                     f"""
                     <div style="width: 250px; font-size: 14px;">
                         <strong>Case Num:</strong>
-                        <a href="/accidents/{coords[4].year}/{coords[3]}/" target="_blank" style="color: blue; text-decoration: underline;">
-                            {coords[3]}
+                        <a href="/accidents/{d['year']}/{d['st_case']}/" target="_blank" style="color: blue; text-decoration: underline;">
+                            {d['st_case']}
                         </a><br>
-                        <strong>Fatalities:</strong> {coords[2]}
+                        <strong>Fatalities:</strong> {d['fatals']}
                     </div>
                     """,
                     max_width=300
@@ -276,12 +278,12 @@ def index(request):
         # Render the map
         print("Rendering Map", file=sys.stderr)
 
-        map1 = map1._repr_html_()
+        map1_html = map1._repr_html_()
         with open(cache_file, "w") as f:
-            f.write(map1)
-
-    with open(cache_file, 'r') as f:
-        map1_html = f.read()
+            f.write(map1_html)
+    else:
+        with open(cache_file, 'r') as f:
+            map1_html = f.read()
 
     context = {'map1': map1_html}
     print("Done Rendering Map", file=sys.stderr)
